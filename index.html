@@ -1,0 +1,1982 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Tracker — GPW & Świat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #080c10;
+    --surface: #0d1117;
+    --card: #111820;
+    --border: #1e2a38;
+    --accent: #00d4aa;
+    --accent2: #ff6b35;
+    --accent3: #7c6bff;
+    --text: #e8edf2;
+    --muted: #5a6a7a;
+    --green: #00e676;
+    --red: #ff4444;
+    --gold: #ffd700;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; padding: 0 0 80px; }
+
+  /* HEADER */
+  header {
+    background: linear-gradient(180deg, #0a1520 0%, transparent 100%);
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(20px);
+  }
+  .header-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.2rem;
+    letter-spacing: -0.02em;
+  }
+  .logo span { color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(0,230,118,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(0,230,118,0); }
+  }
+  .live-label { font-size: 0.65rem; color: var(--green); text-transform: uppercase; letter-spacing: 0.1em; }
+  .refresh-btn {
+    background: var(--border);
+    border: none;
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .refresh-btn:hover { background: var(--accent); color: #000; }
+  .refresh-btn.spinning svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* MAIN LAYOUT */
+  .main { max-width: 900px; margin: 0 auto; padding: 16px; }
+
+  /* SUMMARY CARDS */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  @media(min-width:600px) { .summary-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .sum-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s;
+  }
+  .sum-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .sum-card.total::after { background: var(--accent); }
+  .sum-card.pnl-pos::after { background: var(--green); }
+  .sum-card.pnl-neg::after { background: var(--red); }
+  .sum-card.day::after { background: var(--accent3); }
+
+  .sum-label { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .sum-value { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 700; }
+  .sum-sub { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+
+  /* CHART SECTION */
+  .chart-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::before {
+    content: '';
+    width: 3px; height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .chart-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    background: var(--border);
+    border: none;
+    color: var(--muted);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.65rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+  .tab-btn.active { background: var(--accent); color: #000; font-weight: 600; }
+  .chart-wrap { position: relative; height: 200px; }
+  @media(min-width:600px) { .chart-wrap { height: 260px; } }
+
+  /* TWO COL for charts on wide */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  @media(min-width:640px) { .charts-row { grid-template-columns: 1fr 1fr; } }
+
+  .chart-sm .chart-wrap { height: 170px; }
+
+  /* STOCKS TABLE */
+  .stocks-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .stocks-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .search-box {
+    background: var(--border);
+    border: none;
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.7rem;
+    width: 130px;
+    outline: none;
+    transition: width 0.3s;
+  }
+  .search-box:focus { width: 180px; border: 1px solid var(--accent); }
+  .search-box::placeholder { color: var(--muted); }
+
+  .stock-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #131d28;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .stock-row:hover { background: rgba(0,212,170,0.04); }
+  .stock-row:last-child { border-bottom: none; }
+  .stock-row.loading-row { opacity: 0.4; }
+
+  .stock-name-col {}
+  .stock-ticker { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.85rem; }
+  .stock-fullname { font-size: 0.6rem; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+  .stock-exchange { font-size: 0.55rem; color: var(--accent); background: rgba(0,212,170,0.1); padding: 1px 4px; border-radius: 3px; display: inline-block; margin-top: 2px; }
+
+  .stock-price-col { text-align: right; }
+  .price-val { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 0.9rem; }
+  .price-currency { font-size: 0.55rem; color: var(--muted); }
+
+  .stock-change-col { text-align: right; min-width: 60px; }
+  .change-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 5px;
+    display: inline-block;
+  }
+  .change-badge.pos { background: rgba(0,230,118,0.15); color: var(--green); }
+  .change-badge.neg { background: rgba(255,68,68,0.15); color: var(--red); }
+
+  .stock-sparkline { width: 60px; height: 32px; }
+
+  /* ADD STOCK */
+  .add-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .add-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  @media(max-width:500px) { .add-grid { grid-template-columns: 1fr 1fr; } }
+  .add-input {
+    background: var(--border);
+    border: 1px solid transparent;
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.75rem;
+    outline: none;
+    transition: border 0.2s;
+  }
+  .add-input:focus { border-color: var(--accent); }
+  .add-input::placeholder { color: var(--muted); }
+  .add-btn {
+    background: var(--accent);
+    border: none;
+    color: #000;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .add-btn:hover { background: #00ffcc; transform: translateY(-1px); }
+  .suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .sug-btn {
+    background: rgba(0,212,170,0.08);
+    border: 1px solid rgba(0,212,170,0.2);
+    color: var(--accent);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.6rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .sug-btn:hover { background: rgba(0,212,170,0.2); }
+
+  /* sWIG80 browser */
+  .swig-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .swig-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .swig-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.65rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .swig-toggle:hover, .swig-toggle.open { border-color: var(--accent); color: var(--accent); }
+  .swig-body { display: none; }
+  .swig-body.open { display: block; }
+  .swig-search-wrap { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .swig-search {
+    background: var(--border);
+    border: 1px solid transparent;
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.72rem;
+    outline: none;
+    width: 100%;
+    transition: border 0.2s;
+  }
+  .swig-search:focus { border-color: var(--accent); }
+  .swig-search::placeholder { color: var(--muted); }
+  .swig-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 10px 16px 0;
+    flex-wrap: wrap;
+  }
+  .swig-sector-btn {
+    background: var(--border);
+    border: none;
+    color: var(--muted);
+    padding: 4px 9px;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 0.58rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .swig-sector-btn.active { background: rgba(124,107,255,0.25); color: #a89bff; }
+  .swig-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 6px;
+    padding: 10px 16px 14px;
+    max-height: 340px;
+    overflow-y: auto;
+  }
+  .swig-grid::-webkit-scrollbar { width: 4px; }
+  .swig-grid::-webkit-scrollbar-track { background: transparent; }
+  .swig-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .swig-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .swig-card:hover { border-color: var(--accent3); background: rgba(124,107,255,0.06); transform: translateY(-1px); }
+  .swig-card-ticker { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.8rem; color: var(--text); }
+  .swig-card-name { font-size: 0.58rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .swig-card-sector { font-size: 0.52rem; color: var(--accent3); margin-top: 1px; }
+  .swig-count { font-size: 0.6rem; color: var(--muted); padding: 0 16px 10px; }
+
+  /* NEWS TICKER */
+  .news-ticker {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 16px;
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    z-index: 100;
+    overflow: hidden;
+  }
+  .ticker-inner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .ticker-label {
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    white-space: nowrap;
+    font-weight: 700;
+  }
+  .ticker-scroll {
+    flex: 1;
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
+  }
+  .ticker-text {
+    white-space: nowrap;
+    font-size: 0.65rem;
+    color: var(--muted);
+    animation: marquee 30s linear infinite;
+    display: inline-block;
+  }
+  @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    top: 70px; right: 16px;
+    background: var(--card);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    z-index: 999;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s;
+    max-width: 240px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.err { border-color: var(--red); }
+
+  /* Loading shimmer */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .shimmer {
+    background: linear-gradient(90deg, var(--card) 25%, var(--border) 50%, var(--card) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 10px; }
+  .empty-state p { font-size: 0.75rem; line-height: 1.6; }
+
+  /* Responsive table hint */
+  .col-hint { font-size: 0.55rem; color: var(--muted); text-align: right; padding: 4px 16px 0; }
+
+  /* sWIG80 browser */
+  .swig-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .swig-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .swig-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.65rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .swig-toggle:hover, .swig-toggle.open { border-color: var(--accent3); color: var(--accent3); }
+  .swig-body { display: none; }
+  .swig-body.open { display: block; }
+  .swig-search-wrap { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .swig-search {
+    background: var(--border);
+    border: 1px solid transparent;
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.72rem;
+    outline: none;
+    width: 100%;
+    transition: border 0.2s;
+  }
+  .swig-search:focus { border-color: var(--accent3); }
+  .swig-search::placeholder { color: var(--muted); }
+  .swig-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 10px 16px 0;
+    flex-wrap: wrap;
+  }
+  .swig-sector-btn {
+    background: var(--border);
+    border: none;
+    color: var(--muted);
+    padding: 4px 9px;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 0.58rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .swig-sector-btn.active { background: rgba(124,107,255,0.25); color: #a89bff; }
+  .swig-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 6px;
+    padding: 10px 16px 14px;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+  .swig-grid::-webkit-scrollbar { width: 4px; }
+  .swig-grid::-webkit-scrollbar-track { background: transparent; }
+  .swig-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .swig-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .swig-card:hover { border-color: var(--accent3); background: rgba(124,107,255,0.06); transform: translateY(-1px); }
+  .swig-card-ticker { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.8rem; color: var(--text); }
+  .swig-card-name { font-size: 0.58rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .swig-card-sector { font-size: 0.52rem; color: var(--accent3); margin-top: 1px; }
+  .swig-count { font-size: 0.6rem; color: var(--muted); padding: 4px 16px 8px; }
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="header-inner">
+      <div class="logo">PORTFEL<span>.</span>IO</div>
+      <div class="header-right">
+        <div class="live-dot"></div>
+        <span class="live-label">Live</span>
+        <button class="refresh-btn" id="refreshBtn" onclick="refreshAll()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+          </svg>
+          Odśwież
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- SUMMARY -->
+    <div class="summary-grid" id="summaryGrid">
+      <div class="sum-card total">
+        <div class="sum-label">Wartość portfela</div>
+        <div class="sum-value" id="totalValue">—</div>
+        <div class="sum-sub" id="totalSub">Ładowanie...</div>
+      </div>
+      <div class="sum-card day" id="dayCard">
+        <div class="sum-label">Zmiana dziś</div>
+        <div class="sum-value" id="dayChange">—</div>
+        <div class="sum-sub" id="daySub">vs. wczoraj</div>
+      </div>
+      <div class="sum-card" id="pnlCard">
+        <div class="sum-label">Zysk/Strata</div>
+        <div class="sum-value" id="pnlValue">—</div>
+        <div class="sum-sub" id="pnlSub">od zakupu</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">Akcji w portfelu</div>
+        <div class="sum-value" id="stockCount">0</div>
+        <div class="sum-sub" id="lastUpdate">Brak danych</div>
+      </div>
+    </div>
+
+    <!-- CHARTS ROW -->
+    <div class="charts-row">
+      <div class="chart-section chart-sm">
+        <div class="section-title">Alokacja portfela</div>
+        <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+      </div>
+      <div class="chart-section chart-sm">
+        <div class="section-title">Zmiana % dziś</div>
+        <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- PRICE HISTORY CHART -->
+    <div class="chart-section">
+      <div class="section-title">Historia ceny</div>
+      <div class="chart-tabs" id="historyTabs"></div>
+      <div class="chart-wrap"><canvas id="lineChart"></canvas></div>
+    </div>
+
+    <!-- STOCKS LIST -->
+    <div class="stocks-section">
+      <div class="stocks-header">
+        <div class="section-title" style="margin:0">Moje akcje</div>
+        <input class="search-box" id="searchBox" placeholder="🔍 Szukaj..." oninput="filterStocks(this.value)">
+      </div>
+      <div id="stocksList">
+        <div class="empty-state">
+          <div class="icon">📊</div>
+          <p>Dodaj pierwsze akcje do portfela<br>korzystając z formularza poniżej</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- sWIG80 BROWSER -->
+    <div class="swig-section">
+      <div class="swig-header">
+        <div class="section-title" style="margin:0">Wszystkie sp&#243;&#322;ki GPW <span style="color:var(--accent3);font-size:0.65rem;">367 sp&#243;&#322;ek &bull; 2026-04-29</span></div>
+        <button class="swig-toggle" id="swigToggle" onclick="toggleSwig()">&#9660; Poka&#380; list&#281;</button>
+      </div>
+      <div class="swig-body" id="swigBody">
+        <div class="swig-search-wrap" style="display:flex;gap:8px;align-items:center">
+          <input class="swig-search" id="swigSearch" placeholder="&#128269; Szukaj po nazwie lub skr&#243;cie..." oninput="filterSwig(this.value)" style="flex:1">
+          <select id="swigSortSel" onchange="renderSwigGrid(document.getElementById('swigSearch').value)" style="background:var(--border);border:none;color:var(--text);padding:7px 10px;border-radius:8px;font-family:inherit;font-size:0.7rem;cursor:pointer">
+            <option value="alpha">A-Z</option>
+            <option value="change_asc">Zm. &#8593;</option>
+            <option value="change_desc">Zm. &#8595;</option>
+            <option value="price_asc">Cena &#8593;</option>
+            <option value="price_desc">Cena &#8595;</option>
+          </select>
+        </div>
+        <div class="swig-tabs" id="swigTabs"></div>
+        <div class="swig-count" id="swigCount"></div>
+        <div class="swig-grid" id="swigGrid"></div>
+      </div>
+    </div>
+
+    <!-- ADD STOCK -->
+    <div class="add-section">
+      <div class="section-title">Dodaj akcję</div>
+      <div class="add-grid">
+        <input class="add-input" id="tickerInput" placeholder="Symbol (np. PKN.WA)" oninput="this.value=this.value.toUpperCase()">
+        <input class="add-input" id="sharesInput" placeholder="Liczba akcji" type="number" min="0.001" step="any">
+        <input class="add-input" id="costInput" placeholder="Cena kupna" type="number" min="0" step="any">
+        <button class="add-btn" onclick="addStock()" style="grid-column:1/-1">+ Dodaj do portfela</button>
+      </div>
+      <div class="suggestions" id="suggestions">
+        <div style="font-size:0.6rem;color:var(--muted);width:100%;margin-bottom:4px;">GPW Popularne:</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEWS TICKER -->
+  <div class="news-ticker">
+    <div class="ticker-inner">
+      <div class="ticker-label">GPW</div>
+      <div class="ticker-scroll">
+        <span class="ticker-text" id="tickerText">Ładowanie danych rynkowych... • WIG20 • mWIG40 • sWIG80 • GPW Warszawa</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========================
+// DATA & STATE
+// ========================
+const POPULAR_GPW = [
+  {t:'PKN.WA',n:'PKN Orlen'},{t:'CDR.WA',n:'CD Projekt'},{t:'PKO.WA',n:'PKO BP'},
+  {t:'PZU.WA',n:'PZU'},{t:'DNP.WA',n:'Dino Polska'},{t:'ALE.WA',n:'Allegro'},
+  {t:'KGH.WA',n:'KGHM'},{t:'LPP.WA',n:'LPP'},{t:'PEO.WA',n:'Pekao'},
+  {t:'MBK.WA',n:'mBank'}
+];
+
+const POPULAR_OTHER = [
+  {t:'AAPL',n:'Apple'},{t:'TSLA',n:'Tesla'},{t:'NVDA',n:'NVIDIA'},
+  {t:'MSFT',n:'Microsoft'},{t:'AMZN',n:'Amazon'}
+];
+
+const WIG20_LIST = [
+  {t:'PKN.WA',n:'Orlen'},{t:'PKO.WA',n:'PKO BP'},{t:'PZU.WA',n:'PZU'},
+  {t:'PEO.WA',n:'Pekao'},{t:'KGH.WA',n:'KGHM'},{t:'LPP.WA',n:'LPP'},
+  {t:'ALE.WA',n:'Allegro'},{t:'DNP.WA',n:'Dino Polska'},{t:'CDR.WA',n:'CD Projekt'},
+  {t:'MBK.WA',n:'mBank'},{t:'SPL.WA',n:'Santander BP'},{t:'CPS.WA',n:'Captor'},
+  {t:'JSW.WA',n:'JSW'},{t:'TPE.WA',n:'Tauron'},{t:'OPL.WA',n:'Orange Polska'},
+  {t:'PCO.WA',n:'Polskie Gornictwo'},{t:'ENA.WA',n:'Enea'},{t:'PGE.WA',n:'PGE'},
+  {t:'CIE.WA',n:'Ciekawe'},{t:'XTB.WA',n:'XTB'}
+];
+
+const MWIG40 = [
+  {t:'ASB.WA',n:'Asbis'},{t:'ATT.WA',n:'Astarta'},{t:'BDX.WA',n:'Budlex'},
+  {t:'BNP.WA',n:'BNP Paribas PL'},{t:'BST.WA',n:'Benefit Systems'},
+  {t:'CCC.WA',n:'CCC'},{t:'CMR.WA',n:'Comarch'},{t:'COG.WA',n:'Cognor'},
+  {t:'DOM.WA',n:'Dom Development'},{t:'ECH.WA',n:'Echo Investment'},
+  {t:'EMC.WA',n:'EMC Med.'},{t:'GPW.WA',n:'GPW'},{t:'GTC.WA',n:'Globe Trade'},
+  {t:'ING.WA',n:'ING Bank Slaski'},{t:'IPF.WA',n:'IPF'},{t:'KRK.WA',n:'Kruk'},
+  {t:'KTY.WA',n:'Kety'},{t:'MED.WA',n:'Medicover'},{t:'NEU.WA',n:'Neuca'},
+  {t:'NWG.WA',n:'Newag'},{t:'PCF.WA',n:'Playway'},{t:'PKP.WA',n:'PKP Cargo'},
+  {t:'PLW.WA',n:'Playway'},{t:'PTN.WA',n:'Pelion'},{t:'RBW.WA',n:'Rainbow Tours'},
+  {t:'SXL.WA',n:'Synthos'},{t:'TOR.WA',n:'Torpol'},{t:'UNI.WA',n:'Unibep'},
+  {t:'VGO.WA',n:'Vigo Photonics'},{t:'WLT.WA',n:'Wielton'},{t:'XTB.WA',n:'XTB'},
+  {t:'ZAP.WA',n:'Zamet'},{t:'ATG.WA',n:'Auto Partner'},{t:'SAN.WA',n:'Sanok RC'},
+  {t:'APT.WA',n:'Apator'},{t:'FOR.WA',n:'Forte'},{t:'ACP.WA',n:'Asseco Poland'},
+  {t:'RWL.WA',n:'Rawlplug'},{t:'SKH.WA',n:'Stalexport'},{t:'STF.WA',n:'Stalprofil'}
+];
+
+let portfolio = JSON.parse(localStorage.getItem('ptf_v2') || '[]');
+let quotes = {};
+let history = {};
+let activeHistoryTicker = null;
+let pieChartInst = null, barChartInst = null, lineChartInst = null;
+
+// ========================
+// API — Yahoo Finance, wielokrotne proxy + queue + retry
+// ========================
+
+async function pLimit(tasks, concurrency = 2) {
+  const results = new Array(tasks.length);
+  let idx = 0;
+  async function worker() {
+    while (idx < tasks.length) {
+      const i = idx++;
+      results[i] = await tasks[i]();
+    }
+  }
+  const workers = Array.from({length: concurrency}, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Kolejka globalana - rate limiting
+let _lastReq = 0;
+async function rateLimitedFetch(url, timeout = 10000) {
+  const now = Date.now();
+  const wait = Math.max(0, _lastReq + 350 - now);
+  if(wait > 0) await sleep(wait);
+  _lastReq = Date.now();
+
+  // Proxy lista w kolejnosci priorytetu
+  const proxies = [
+    `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    `https://thingproxy.freeboard.io/fetch/${url}`,
+  ];
+
+  for(let i = 0; i < proxies.length; i++) {
+    try {
+      const r = await fetch(proxies[i], {signal: AbortSignal.timeout(timeout)});
+      if(!r.ok) { if(i < proxies.length-1) { await sleep(300); continue; } break; }
+      const text = await r.text();
+      if(!text || text.length < 10) continue;
+      // allorigins zwraca {contents: "..."}, inne zwracaja raw
+      try {
+        const j = JSON.parse(text);
+        if(j.contents !== undefined) return j.contents;
+        return text; // juz jest raw JSON
+      } catch { return text; }
+    } catch(e) {
+      if(i < proxies.length-1) await sleep(300);
+    }
+  }
+  return null;
+}
+
+async function fetchQuote(symbol, retries = 3) {
+  for(let attempt = 0; attempt < retries; attempt++) {
+    if(attempt > 0) await sleep(800 * attempt);
+
+    // === Proba 1: Yahoo v8 chart ===
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d&includePrePost=false`;
+      const raw = await rateLimitedFetch(url);
+      if(raw) {
+        const d = JSON.parse(raw);
+        if(d.chart && d.chart.result && d.chart.result[0]) {
+          const meta = d.chart.result[0].meta;
+          const price = meta.regularMarketPrice || meta.previousClose;
+          if(price) {
+            return {
+              symbol: meta.symbol || symbol,
+              price,
+              prevClose: meta.previousClose || meta.chartPreviousClose || price,
+              currency: meta.currency || 'PLN',
+              name: meta.shortName || meta.longName || symbol,
+              exchange: meta.exchangeName || (symbol.endsWith('.WA') ? 'GPW' : ''),
+              volume: meta.regularMarketVolume,
+            };
+          }
+        }
+        // Sprawdz blad
+        if(d.chart && d.chart.error) {
+          console.log('Yahoo v8 error for', symbol, ':', d.chart.error);
+        }
+      }
+    } catch(e) { console.log('v8 error', symbol, e.message); }
+
+    await sleep(200);
+
+    // === Proba 2: Yahoo v7 quote ===
+    try {
+      const url2 = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+      const raw2 = await rateLimitedFetch(url2);
+      if(raw2) {
+        const d2 = JSON.parse(raw2);
+        const q = d2?.quoteResponse?.result?.[0];
+        if(q && (q.regularMarketPrice || q.ask || q.bid)) {
+          const price = q.regularMarketPrice || q.ask || q.bid;
+          return {
+            symbol: q.symbol || symbol,
+            price,
+            prevClose: q.regularMarketPreviousClose || price,
+            currency: q.currency || 'PLN',
+            name: q.shortName || q.longName || symbol,
+            exchange: q.fullExchangeName || (symbol.endsWith('.WA') ? 'GPW' : ''),
+            volume: q.regularMarketVolume,
+          };
+        }
+      }
+    } catch(e) { console.log('v7 error', symbol, e.message); }
+
+    await sleep(200);
+
+    // === Proba 3: Yahoo v10 quoteSummary ===
+    try {
+      const url3 = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=price`;
+      const raw3 = await rateLimitedFetch(url3);
+      if(raw3) {
+        const d3 = JSON.parse(raw3);
+        const p = d3?.quoteSummary?.result?.[0]?.price;
+        if(p && p.regularMarketPrice?.raw) {
+          return {
+            symbol: p.symbol || symbol,
+            price: p.regularMarketPrice.raw,
+            prevClose: p.regularMarketPreviousClose?.raw || p.regularMarketPrice.raw,
+            currency: p.currency || 'PLN',
+            name: p.shortName || p.longName || symbol,
+            exchange: p.exchangeName || (symbol.endsWith('.WA') ? 'GPW' : ''),
+            volume: p.regularMarketVolume?.raw,
+          };
+        }
+      }
+    } catch(e) { console.log('v10 error', symbol, e.message); }
+  }
+
+  console.error('Nie udalo sie pobrac:', symbol);
+  return null;
+}
+
+async function fetchHistory(symbol, range='1mo') {
+  const intervals = {'1d':'15m','5d':'1h','1mo':'1d','6mo':'1d','1y':'1wk','5y':'1mo'};
+  const interval = intervals[range] || '1d';
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}`;
+  const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+  try {
+    const r = await fetch(proxy, {signal: AbortSignal.timeout(10000)});
+    const j = await r.json();
+    const d = JSON.parse(j.contents);
+    const result = d.chart.result[0];
+    const ts = result.timestamp || [];
+    const closes = result.indicators.quote[0].close || [];
+    return ts.map((t,i) => ({
+      t: new Date(t*1000),
+      v: closes[i]
+    })).filter(x=>x.v!=null);
+  } catch(e) { return []; }
+}
+
+// ========================
+// PORTFOLIO LOGIC
+// ========================
+async function addStock() {
+  let ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
+  const shares = parseFloat(document.getElementById('sharesInput').value) || 1;
+  const cost = parseFloat(document.getElementById('costInput').value) || 0;
+
+  if(!ticker) { showToast('Podaj symbol akcji!', true); return; }
+
+  // Auto-append .WA: jesli brak kropki, sprawdz GPW, sWIG80 i mWIG/WIG20
+  if(!ticker.includes('.')) {
+    const allGPW = [...POPULAR_GPW, ...SWIG80, ...MWIG40, ...WIG20_LIST];
+    const found = allGPW.find(x => x.t.replace('.WA','') === ticker || x.t === ticker+'.WA');
+    if(found) ticker = found.t;
+    else ticker = ticker + '.WA'; // domyslnie sprobuj .WA
+  }
+
+  // Sprawdz duplikat
+  if(portfolio.some(p => p.ticker === ticker)) {
+    showToast('Spolka ' + ticker + ' jest juz w portfelu!', true);
+    return;
+  }
+
+  showToast('Pobieranie: ' + ticker + '...');
+  let q = null;
+  try { q = await fetchQuote(ticker); } catch(e) {}
+
+  // Jesli nie znaleziono z .WA, sprobuj bez
+  if((!q || !q.price) && ticker.endsWith('.WA')) {
+    const bare = ticker.replace('.WA','');
+    showToast('Proba bez sufiksu: ' + bare + '...');
+    try { q = await fetchQuote(bare); } catch(e) {}
+  }
+
+  if(!q || !q.price) {
+    showToast('Nie znaleziono: ' + ticker + '. Sprawdz symbol na Yahoo Finance.', true);
+    return;
+  }
+
+  portfolio.push({ ticker: q.symbol, shares, cost, addedAt: Date.now(), name: q.name });
+  savePortfolio();
+  quotes[q.symbol] = q;
+
+  document.getElementById('tickerInput').value = '';
+  document.getElementById('sharesInput').value = '';
+  document.getElementById('costInput').value = '';
+
+  showToast('✓ Dodano: ' + q.name + ' (' + q.symbol + ')');
+  renderAll();
+  fetchHistoryFor(q.symbol, '1mo');
+}
+
+function removeStock(ticker) {
+  portfolio = portfolio.filter(p=>p.ticker!==ticker);
+  delete quotes[ticker];
+  delete history[ticker];
+  savePortfolio();
+  renderAll();
+}
+
+function savePortfolio() {
+  localStorage.setItem('ptf_v2', JSON.stringify(portfolio));
+}
+
+// ========================
+// REFRESH
+// ========================
+async function refreshAll() {
+  if(!portfolio.length) return;
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+
+  // Pobieramy z ograniczeniem: max 2 rownoczesne zapytania
+  const tasks = portfolio.map(p => async () => {
+    const q = await fetchQuote(p.ticker);
+    if(q) { quotes[p.ticker] = q; renderStocksList(); renderSummary(); }
+  });
+  await pLimit(tasks, 2);
+
+  if(activeHistoryTicker) fetchHistoryFor(activeHistoryTicker, currentRange);
+
+  renderAll();
+  btn.classList.remove('spinning');
+  document.getElementById('lastUpdate').textContent = 'Aktualizacja: ' + new Date().toLocaleTimeString('pl');
+}
+
+let currentRange = '1mo';
+async function fetchHistoryFor(ticker, range) {
+  currentRange = range;
+  activeHistoryTicker = ticker;
+  const data = await fetchHistory(ticker, range);
+  history[ticker] = history[ticker] || {};
+  history[ticker][range] = data;
+  renderLineChart(ticker, range);
+}
+
+// ========================
+// RENDER
+// ========================
+function renderAll() {
+  renderSummary();
+  renderStocksList();
+  renderPieChart();
+  renderBarChart();
+  renderHistoryTabs();
+  document.getElementById('stockCount').textContent = portfolio.length;
+  updateTicker();
+}
+
+function renderSummary() {
+  let totalValue = 0, totalCost = 0, totalDayChange = 0;
+
+  portfolio.forEach(p => {
+    const q = quotes[p.ticker];
+    if(!q) return;
+    totalValue += q.price * p.shares;
+    totalCost += (p.cost || 0) * p.shares;
+    totalDayChange += (q.price - q.prevClose) * p.shares;
+  });
+
+  const pnl = totalValue - totalCost;
+  const pnlPct = totalCost > 0 ? (pnl/totalCost*100) : 0;
+  const dayPct = totalValue > 0 ? (totalDayChange/totalValue*100) : 0;
+
+  document.getElementById('totalValue').textContent = fmt(totalValue, 'PLN');
+  document.getElementById('totalSub').textContent = `Koszt: ${fmt(totalCost, 'PLN')}`;
+
+  const dc = document.getElementById('dayChange');
+  dc.textContent = (totalDayChange>=0?'+':'') + fmt(totalDayChange,'PLN');
+  dc.className = 'sum-value ' + (totalDayChange>=0?'pos':'neg');
+  document.getElementById('daySub').textContent = `${dayPct>=0?'+':''}${dayPct.toFixed(2)}% vs wczoraj`;
+
+  const pv = document.getElementById('pnlValue');
+  pv.textContent = (pnl>=0?'+':'') + fmt(pnl,'PLN');
+  pv.className = 'sum-value ' + (pnl>=0?'pos':'neg');
+  document.getElementById('pnlSub').textContent = `${pnlPct>=0?'+':''}${pnlPct.toFixed(2)}%`;
+
+  const pnlCard = document.getElementById('pnlCard');
+  pnlCard.className = 'sum-card ' + (pnl>=0?'pnl-pos':'pnl-neg');
+}
+
+function fmt(val, currency) {
+  if(!val || isNaN(val)) return '—';
+  return val.toLocaleString('pl-PL', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ' + (currency||'');
+}
+
+function renderStocksList() {
+  const list = document.getElementById('stocksList');
+  if(!portfolio.length) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">📊</div><p>Dodaj pierwsze akcje do portfela<br>korzystając z formularza poniżej</p></div>`;
+    return;
+  }
+
+  const filter = document.getElementById('searchBox').value.toLowerCase();
+  const filtered = portfolio.filter(p =>
+    p.ticker.toLowerCase().includes(filter) || (p.name||'').toLowerCase().includes(filter)
+  );
+
+  list.innerHTML = `<div class="col-hint">cena · zmiana · sparkline</div>` + filtered.map(p => {
+    const q = quotes[p.ticker];
+    if(!q) return `<div class="stock-row loading-row">
+      <div class="stock-name-col">
+        <div class="stock-ticker">${p.ticker}</div>
+        <div class="stock-fullname shimmer" style="width:80px;height:10px;margin-top:4px"> </div>
+      </div>
+      <div style="font-size:0.65rem;color:var(--muted)">Pobieranie...</div>
+    </div>`;
+
+    const change = q.price - q.prevClose;
+    const changePct = q.prevClose ? (change/q.prevClose*100) : 0;
+    const isPos = change >= 0;
+    const value = q.price * p.shares;
+    const pnl = p.cost > 0 ? ((q.price - p.cost) / p.cost * 100) : null;
+
+    return `<div class="stock-row" onclick="selectStock('${p.ticker}')">
+      <div class="stock-name-col">
+        <div class="stock-ticker">${p.ticker.replace('.WA','')}</div>
+        <div class="stock-fullname">${q.name || p.name || ''}</div>
+        <div class="stock-exchange">${p.ticker.includes('.WA')?'GPW':q.exchange||'US'}</div>
+      </div>
+      <div class="stock-price-col">
+        <div class="price-val">${q.price ? q.price.toFixed(2) : '—'}</div>
+        <div class="price-currency">${q.currency||'PLN'} · ${p.shares} szt.</div>
+        ${pnl!==null?`<div style="font-size:0.58rem;color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>=0?'+':''}${pnl.toFixed(1)}% od zakupu</div>`:''}
+      </div>
+      <div class="stock-change-col">
+        <div class="change-badge ${isPos?'pos':'neg'}">${isPos?'+':''}${changePct.toFixed(2)}%</div>
+        <div style="font-size:0.58rem;color:var(--muted);margin-top:3px">${isPos?'+':''}${change.toFixed(2)}</div>
+      </div>
+      <canvas class="stock-sparkline" id="spark_${p.ticker.replace(/\./g,'_')}"></canvas>
+      <button onclick="event.stopPropagation();removeStock('${p.ticker}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.9rem;padding:4px;margin-left:2px">✕</button>
+    </div>`;
+  }).join('');
+
+  // Draw sparklines
+  filtered.forEach(p => {
+    const h = history[p.ticker]?.['1mo'];
+    if(h && h.length > 1) drawSparkline(`spark_${p.ticker.replace(/\./g,'_')}`, h);
+  });
+}
+
+function drawSparkline(canvasId, data) {
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = 60, h = canvas.height = 32;
+  const vals = data.map(d=>d.v).filter(Boolean);
+  if(vals.length < 2) return;
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = max - min || 1;
+  const color = vals[vals.length-1] >= vals[0] ? '#00e676' : '#ff4444';
+
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  vals.forEach((v,i) => {
+    const x = (i/(vals.length-1))*w;
+    const y = h - ((v-min)/range)*(h-4) - 2;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Fill
+  ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath();
+  ctx.fillStyle = color.replace(')',',0.1)').replace('rgb','rgba').replace('#00e676','rgba(0,230,118,0.1)').replace('#ff4444','rgba(255,68,68,0.1)');
+  ctx.fill();
+}
+
+function filterStocks(val) { renderStocksList(); }
+
+function selectStock(ticker) {
+  activeHistoryTicker = ticker;
+  fetchHistoryFor(ticker, currentRange);
+  // scroll to chart
+  document.querySelector('.chart-section:last-of-type')?.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ========================
+// CHARTS
+// ========================
+const chartDefaults = {
+  font: { family: 'JetBrains Mono, monospace', size: 10 },
+  color: '#5a6a7a'
+};
+
+function renderPieChart() {
+  const ctx = document.getElementById('pieChart').getContext('2d');
+  const items = portfolio.filter(p=>quotes[p.ticker]);
+  if(!items.length) { if(pieChartInst){pieChartInst.destroy();pieChartInst=null;} return; }
+
+  const labels = items.map(p=>p.ticker.replace('.WA',''));
+  const data = items.map(p=>(quotes[p.ticker].price*p.shares).toFixed(0));
+  const colors = ['#00d4aa','#ff6b35','#7c6bff','#ffd700','#00e676','#ff4444','#00bfff','#ff69b4','#adff2f','#ff8c00'];
+
+  if(pieChartInst) pieChartInst.destroy();
+  pieChartInst = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth:0, hoverOffset:8 }] },
+    options: {
+      responsive:true, maintainAspectRatio:false, cutout:'65%',
+      plugins: {
+        legend: { position:'right', labels:{ color:'#5a6a7a', font:{size:9,family:'JetBrains Mono'}, boxWidth:8, padding:6 } },
+        tooltip: { callbacks: { label: (c)=>` ${c.label}: ${Number(c.parsed).toLocaleString()} PLN` } }
+      }
+    }
+  });
+}
+
+function renderBarChart() {
+  const ctx = document.getElementById('barChart').getContext('2d');
+  const items = portfolio.filter(p=>quotes[p.ticker]);
+  if(!items.length) { if(barChartInst){barChartInst.destroy();barChartInst=null;} return; }
+
+  const labels = items.map(p=>p.ticker.replace('.WA',''));
+  const data = items.map(p=>{
+    const q=quotes[p.ticker];
+    return q.prevClose ? ((q.price-q.prevClose)/q.prevClose*100) : 0;
+  });
+  const colors = data.map(v=>v>=0?'rgba(0,230,118,0.8)':'rgba(255,68,68,0.8)');
+
+  if(barChartInst) barChartInst.destroy();
+  barChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor:colors, borderRadius:4, borderSkipped:false }] },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.parsed.y>=0?'+':''}${c.parsed.y.toFixed(2)}%`}} },
+      scales: {
+        x: { ticks:{color:'#5a6a7a',font:{size:9}}, grid:{color:'#1e2a38'} },
+        y: { ticks:{color:'#5a6a7a',font:{size:9},callback:v=>v+'%'}, grid:{color:'#1e2a38'}, border:{dash:[4,4]} }
+      }
+    }
+  });
+}
+
+function renderHistoryTabs() {
+  const tabs = document.getElementById('historyTabs');
+  const ranges = ['1d','5d','1mo','6mo','1y','5y'];
+  const labels = {'1d':'1D','5d':'5D','1mo':'1M','6mo':'6M','1y':'1R','5y':'5L'};
+  tabs.innerHTML = ranges.map(r=>`
+    <button class="tab-btn ${r===currentRange?'active':''}" onclick="changeRange('${r}')">${labels[r]}</button>
+  `).join('');
+}
+
+function changeRange(range) {
+  currentRange = range;
+  renderHistoryTabs();
+  if(activeHistoryTicker) fetchHistoryFor(activeHistoryTicker, range);
+}
+
+function renderLineChart(ticker, range) {
+  const ctx = document.getElementById('lineChart').getContext('2d');
+  const data = history[ticker]?.[range] || [];
+
+  if(lineChartInst) lineChartInst.destroy();
+  if(!data.length) return;
+
+  const vals = data.map(d=>d.v);
+  const isUp = vals[vals.length-1] >= vals[0];
+  const color = isUp ? '#00e676' : '#ff4444';
+
+  const gradient = ctx.createLinearGradient(0,0,0,ctx.canvas.height);
+  gradient.addColorStop(0, isUp?'rgba(0,230,118,0.3)':'rgba(255,68,68,0.3)');
+  gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+  lineChartInst = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: data.map(d=>d.t.toLocaleDateString('pl',{day:'2-digit',month:'2-digit'})),
+      datasets:[{
+        label: ticker, data: vals,
+        borderColor: color, backgroundColor: gradient,
+        borderWidth:2, pointRadius:0, pointHoverRadius:4,
+        fill:true, tension:0.3
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:true, labels:{color:'#e8edf2',font:{size:10,family:'JetBrains Mono'},boxWidth:10}},
+        tooltip:{
+          backgroundColor:'#111820', borderColor:'#1e2a38', borderWidth:1,
+          titleColor:'#5a6a7a', bodyColor:'#e8edf2',
+          callbacks:{ label: c=>`  ${c.dataset.label}: ${c.parsed.y?.toFixed(2)}` }
+        }
+      },
+      scales:{
+        x:{
+          ticks:{color:'#5a6a7a',font:{size:9},maxTicksLimit:8,maxRotation:0},
+          grid:{color:'#131d28'}
+        },
+        y:{
+          ticks:{color:'#5a6a7a',font:{size:9},callback:v=>v.toFixed(0)},
+          grid:{color:'#131d28'},border:{dash:[4,4]},
+          position:'right'
+        }
+      }
+    }
+  });
+}
+
+// ========================
+// TICKER
+// ========================
+function updateTicker() {
+  const parts = portfolio.map(p=>{
+    const q = quotes[p.ticker];
+    if(!q) return p.ticker;
+    const ch = q.prevClose ? ((q.price-q.prevClose)/q.prevClose*100) : 0;
+    return `${p.ticker.replace('.WA','')} ${q.price?.toFixed(2)} (${ch>=0?'+':''}${ch.toFixed(2)}%)`;
+  });
+  if(!parts.length) {
+    document.getElementById('tickerText').textContent = 'WIG20 • PKN Orlen • CD Projekt • PKO BP • KGHM • Allegro • GPW Warszawa';
+    return;
+  }
+  const text = parts.join('   •   ') + '   •   ' + parts.join('   •   ');
+  document.getElementById('tickerText').textContent = text;
+}
+
+// ========================
+// SUGGESTIONS
+// ========================
+function renderSuggestions() {
+  const sug = document.getElementById('suggestions');
+  sug.innerHTML = '<div style="font-size:0.6rem;color:var(--muted);width:100%;margin-bottom:4px;">Szybkie dodawanie:</div>';
+  [...POPULAR_GPW.slice(0,6), ...POPULAR_OTHER.slice(0,3)].forEach(s=>{
+    const btn = document.createElement('button');
+    btn.className = 'sug-btn';
+    btn.textContent = `${s.t.replace('.WA','')} · ${s.n}`;
+    btn.onclick = () => {
+      document.getElementById('tickerInput').value = s.t;
+      document.getElementById('sharesInput').focus();
+    };
+    sug.appendChild(btn);
+  });
+}
+
+// ========================
+// TOAST
+// ========================
+function showToast(msg, err=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (err?' err':'');
+  clearTimeout(t._to);
+  t._to = setTimeout(()=>t.className='toast', 3000);
+}
+
+// ========================
+// AUTO REFRESH
+// ========================
+setInterval(()=>{
+  if(portfolio.length) refreshAll();
+}, 60000);
+
+// ========================
+// INIT
+// ========================
+async function init() {
+  renderSuggestions();
+  renderHistoryTabs();
+
+  if(!portfolio.length) {
+    // Load demo stocks
+    portfolio = [
+      {ticker:'PKN.WA', shares:10, cost:65.5, name:'PKN Orlen', addedAt:Date.now()},
+      {ticker:'CDR.WA', shares:5, cost:195.0, name:'CD Projekt', addedAt:Date.now()},
+      {ticker:'PKO.WA', shares:20, cost:48.2, name:'PKO BP', addedAt:Date.now()},
+    ];
+    savePortfolio();
+    showToast('Załadowano przykładowy portfel');
+  }
+
+  document.getElementById('stockCount').textContent = portfolio.length;
+  renderStocksList();
+
+  // Pobieramy sekwencyjnie po 2 naraz — nie floodujemy proxy
+  const tasks = portfolio.map(p => async () => {
+    const q = await fetchQuote(p.ticker);
+    if(q) {
+      quotes[p.ticker] = q;
+      renderStocksList();
+      renderSummary();
+      renderPieChart();
+      renderBarChart();
+      updateTicker();
+    }
+  });
+  await pLimit(tasks, 2);
+
+  renderAll();
+
+  // Historia: rowniez kolejkujemy po 2
+  const histTasks = portfolio.map((p, i) => async () => {
+    const data = await fetchHistory(p.ticker, '1mo');
+    history[p.ticker] = history[p.ticker] || {};
+    history[p.ticker]['1mo'] = data;
+    if(i === 0) renderLineChart(p.ticker, '1mo');
+    renderStocksList();
+  });
+  pLimit(histTasks, 2); // nie czekamy — w tle
+
+  document.getElementById('lastUpdate').textContent = 'Aktualizacja: ' + new Date().toLocaleTimeString('pl');
+}
+
+// ========================
+// GPW BROWSER — pelna lista 367 spolek
+// ========================
+const GPW_ALL = [
+  {t:'06N.WA',n:'06MAGNA',p:2.44,z:-1.21},
+  {t:'11B.WA',n:'11BIT',p:159.7,z:0.25},
+  {t:'3RG.WA',n:'3RGAMES',p:0.686,z:-1.15},
+  {t:'4MS.WA',n:'4MASS',p:4.095,z:-2.03},
+  {t:'ABE.WA',n:'ABPL',p:125.2,z:1.62},
+  {t:'ACG.WA',n:'ACAUTOGAZ',p:21.7,z:0},
+  {t:'ACT.WA',n:'ACTION',p:30.15,z:3.61},
+  {t:'ADV.WA',n:'ADIUVO/7',p:0.554,z:-1.07},
+  {t:'AGO.WA',n:'AGORA',p:8.62,z:0.23},
+  {t:'AGT.WA',n:'AGROTON',p:4.82,z:0.42},
+  {t:'ALG.WA',n:'AIGAMES',p:0.834,z:1.96},
+  {t:'ALL.WA',n:'AILLERON',p:16.76,z:-0.12},
+  {t:'AWM.WA',n:'AIRWAY',p:0.297,z:-0.34},
+  {t:'ALR.WA',n:'ALIOR',p:121.65,z:-1.1},
+  {t:'ALE.WA',n:'ALLEGRO',p:29.99,z:1.56},
+  {t:'AAT.WA',n:'ALTA',p:1.65,z:0.61},
+  {t:'ALI.WA',n:'ALTUS',p:2.72,z:-0.37},
+  {t:'AMB.WA',n:'AMBRA',p:19.0,z:0.74},
+  {t:'AMC.WA',n:'AMICA',p:53.0,z:3.11},
+  {t:'EAT.WA',n:'AMREST',p:11.2,z:-1.06},
+  {t:'ANR.WA',n:'ANSWEAR',p:18.3,z:-1.51},
+  {t:'APT.WA',n:'APATOR',p:25.3,z:-0.78},
+  {t:'APN.WA',n:'APLISENS',p:18.15,z:1.11},
+  {t:'APE.WA',n:'APSENERGY',p:3.86,z:-2.03},
+  {t:'ARH.WA',n:'ARCHICOM',p:52.8,z:-2.94},
+  {t:'ATC.WA',n:'ARCTIC',p:6.88,z:-0.72},
+  {t:'ARL.WA',n:'ARLEN',p:30.5,z:1.67},
+  {t:'ART.WA',n:'ARTIFEX',p:20.7,z:-3.04},
+  {t:'ASB.WA',n:'ASBIS',p:63.75,z:3.32},
+  {t:'ASM.WA',n:'ASMGROUP',p:0.292,z:0},
+  {t:'ABS.WA',n:'ASSECOBS',p:83.2,z:0.97},
+  {t:'ACP.WA',n:'ASSECOPOL',p:182.4,z:0.61},
+  {t:'ASE.WA',n:'ASSECOSEE',p:61.3,z:-2.54},
+  {t:'AST.WA',n:'ASTARTA',p:49.3,z:1.02},
+  {t:'1AT.WA',n:'ATAL',p:59.8,z:0.5},
+  {t:'ATD.WA',n:'ATENDE',p:3.3,z:-2.08},
+  {t:'ATP.WA',n:'ATLANTAPL',p:17.9,z:-0.28},
+  {t:'ATG.WA',n:'ATMGRUPA',p:3.98,z:0},
+  {t:'ATR.WA',n:'ATREM',p:59.7,z:-4.33},
+  {t:'APR.WA',n:'AUTOPARTN',p:21.5,z:1.42},
+  {t:'BBD.WA',n:'BBIDEV',p:5.42,z:0.37},
+  {t:'BFT.WA',n:'BENEFIT',p:4040.0,z:4.88},
+  {t:'BST.WA',n:'BEST',p:28.6,z:-2.39},
+  {t:'BCM.WA',n:'BETACOM',p:5.24,z:3.97},
+  {t:'BCS.WA',n:'BIGCHEESE',p:5.4,z:-1.64},
+  {t:'BCX.WA',n:'BIOCELTIX',p:87.6,z:-1.13},
+  {t:'BMX.WA',n:'BIOMAXIMA',p:11.66,z:-0.68},
+  {t:'BIP.WA',n:'BIOPLANET',p:34.8,z:2.05},
+  {t:'BIO.WA',n:'BIOTON',p:4.17,z:0},
+  {t:'BLO.WA',n:'BLOOBER',p:26.45,z:0.95},
+  {t:'BNP.WA',n:'BNPPPL',p:149.0,z:0.54},
+  {t:'LWB.WA',n:'BOGDANKA',p:24.6,z:-2.19},
+  {t:'BBT.WA',n:'BOOMBIT',p:6.22,z:-0.96},
+  {t:'BRS.WA',n:'BORYSZEW',p:4.86,z:0.31},
+  {t:'BOS.WA',n:'BOS',p:10.12,z:0.2},
+  {t:'BOW.WA',n:'BOWIM',p:6.7,z:0.3},
+  {t:'BDX.WA',n:'BUDIMEX',p:661.6,z:-0.72},
+  {t:'BMC.WA',n:'BUMECH',p:20.0,z:-1.96},
+  {t:'CPA.WA',n:'CAPITAL',p:3.26,z:-6.32},
+  {t:'CAP.WA',n:'CAPITEA',p:0.528,z:0.76},
+  {t:'CTX.WA',n:'CAPTORTX',p:80.5,z:1.64},
+  {t:'CSR.WA',n:'CASPAR',p:5.0,z:0.4},
+  {t:'CAV.WA',n:'CAVATINA',p:13.7,z:-1.79},
+  {t:'CDR.WA',n:'CDPROJEKT',p:276.2,z:-0.47},
+  {t:'CDL.WA',n:'CDRL',p:8.3,z:-0.6},
+  {t:'CPD.WA',n:'CELTIC',p:1.69,z:-2.87},
+  {t:'CEZ.WA',n:'CEZ',p:208.2,z:-0.29},
+  {t:'CIG.WA',n:'CIGAMES',p:3.19,z:0.63},
+  {t:'CLN.WA',n:'CLNPHARMA',p:21.4,z:0.47},
+  {t:'CLD.WA',n:'CLOUD',p:65.0,z:-1.81},
+  {t:'CLE.WA',n:'COALENERG',p:2.448,z:0.25},
+  {t:'COG.WA',n:'COGNOR',p:5.19,z:0.39},
+  {t:'CLC.WA',n:'COLUMBUS',p:3.7,z:0.27},
+  {t:'CMP.WA',n:'COMP',p:57.7,z:1.41},
+  {t:'CPL.WA',n:'COMPERIA',p:4.8,z:0.42},
+  {t:'CPR.WA',n:'COMPREMUM',p:1.41,z:8.88},
+  {t:'CRM.WA',n:'CORMAY',p:0.558,z:-1.41},
+  {t:'CPI.WA',n:'CPIEUROPE',p:65.3,z:0},
+  {t:'CRJ.WA',n:'CREEPYJAR',p:576.0,z:0.35},
+  {t:'CRI.WA',n:'CREOTECH',p:650.0,z:1.72},
+  {t:'CRQ.WA',n:'CRQUANTUM',p:199.0,z:4.19},
+  {t:'CBF.WA',n:'CYBERFLKS',p:182.5,z:0.27},
+  {t:'CPS.WA',n:'CYFRPLSAT',p:15.07,z:9.84},
+  {t:'DAD.WA',n:'DADELO',p:70.8,z:1.0},
+  {t:'DAT.WA',n:'DATAWALK',p:134.8,z:1.66},
+  {t:'DBE.WA',n:'DBENERGY',p:9.88,z:1.86},
+  {t:'DBC.WA',n:'DEBICA',p:85.3,z:0.47},
+  {t:'DCR.WA',n:'DECORA',p:74.5,z:-1.97},
+  {t:'DEK.WA',n:'DEKPOL',p:80.0,z:-3.61},
+  {t:'DEL.WA',n:'DELKO',p:6.33,z:0.8},
+  {t:'DVL.WA',n:'DEVELIA',p:10.4,z:0.19},
+  {t:'DGA.WA',n:'DGA',p:26.8,z:3.08},
+  {t:'DIA.WA',n:'DIAG',p:151.5,z:0.13},
+  {t:'DIG.WA',n:'DIGITANET',p:195.8,z:-3.07},
+  {t:'DTR.WA',n:'DIGITREE',p:10.7,z:0},
+  {t:'DNP.WA',n:'DINOPL',p:31.46,z:-2.45},
+  {t:'DMG.WA',n:'DMGROUP',p:2.23,z:-3.88},
+  {t:'DOM.WA',n:'DOMDEV',p:261.0,z:1.56},
+  {t:'DGE.WA',n:'DRAGOENT',p:19.85,z:-0.25},
+  {t:'ECB.WA',n:'ECBSA',p:22.7,z:0.44},
+  {t:'ECH.WA',n:'ECHO',p:5.2,z:0.97},
+  {t:'EDI.WA',n:'EDINVEST',p:9.78,z:1.88},
+  {t:'ELT.WA',n:'ELEKTROTI',p:57.05,z:-0.95},
+  {t:'EKP.WA',n:'ELKOP',p:1.805,z:1.4},
+  {t:'ENA.WA',n:'ENEA',p:21.84,z:0.09},
+  {t:'ENE.WA',n:'ENELMED',p:19.0,z:0},
+  {t:'ENG.WA',n:'ENERGA',p:18.94,z:0.53},
+  {t:'ENI.WA',n:'ENERGOINS',p:2.27,z:-5.81},
+  {t:'ENT.WA',n:'ENTER',p:54.3,z:0},
+  {t:'EQU.WA',n:'EQUNICO',p:1.15,z:-5.74},
+  {t:'ERB.WA',n:'ERBUD',p:26.8,z:-1.29},
+  {t:'ERG.WA',n:'ERG',p:44.0,z:10.0},
+  {t:'EBP.WA',n:'ERSTEPL',p:624.2,z:-0.26},
+  {t:'EAH.WA',n:'ESOTIQ',p:32.6,z:-0.31},
+  {t:'EST.WA',n:'ESTAR',p:1.46,z:0},
+  {t:'EUC.WA',n:'EUCO/1',p:0.49,z:2.08},
+  {t:'EUR.WA',n:'EUROCASH',p:5.77,z:-0.09},
+  {t:'EHG.WA',n:'EUROHOLD',p:3.86,z:-1.53},
+  {t:'ETL.WA',n:'EUROTEL',p:25.75,z:-0.39},
+  {t:'FAB.WA',n:'FABRITY',p:24.8,z:-0.8},
+  {t:'FSG.WA',n:'FASING',p:13.9,z:-3.47},
+  {t:'FEE.WA',n:'FEERUM',p:14.1,z:0.71},
+  {t:'FRO.WA',n:'FERRO',p:28.3,z:1.07},
+  {t:'FON.WA',n:'FON',p:1.7,z:4.62},
+  {t:'FHB.WA',n:'FOODHUB',p:2.28,z:0},
+  {t:'FTE.WA',n:'FORTE',p:19.85,z:-0.75},
+  {t:'GOP.WA',n:'GAMEOPS',p:13.45,z:1.89},
+  {t:'GIF.WA',n:'GAMFACTOR',p:5.16,z:-0.77},
+  {t:'GMT.WA',n:'GENOMTEC',p:4.745,z:0.96},
+  {t:'GTN.WA',n:'GETIN',p:0.503,z:0.6},
+  {t:'GPW.WA',n:'GPW',p:75.0,z:0.33},
+  {t:'GRX.WA',n:'GREENX',p:2.268,z:-1.31},
+  {t:'GEA.WA',n:'GRENEVIA /Z',p:3.27,z:0},
+  {t:'GRN.WA',n:'GRODNO',p:16.0,z:-0.62},
+  {t:'ATT.WA',n:'GRUPAAZOTY',p:17.94,z:0.22},
+  {t:'GPP.WA',n:'GRUPRACUJ',p:44.3,z:-1.12},
+  {t:'GTC.WA',n:'GTC',p:2.68,z:1.9},
+  {t:'BHW.WA',n:'HANDLOWY',p:115.4,z:-0.17},
+  {t:'HRP.WA',n:'HARPER',p:5.1,z:-1.54},
+  {t:'HEL.WA',n:'HELIO',p:54.2,z:1.12},
+  {t:'HRS.WA',n:'HERKULES',p:1.55,z:2.65},
+  {t:'HUG.WA',n:'HUUUGE',p:22.2,z:-1.99},
+  {t:'HDR.WA',n:'HYDROTOR',p:14.6,z:-3.31},
+  {t:'IBS.WA',n:'IBSM',p:74.2,z:1.92},
+  {t:'IDM.WA',n:'IDMSA',p:0.46,z:-7.63},
+  {t:'IFC.WA',n:'IFCAPITAL /Z',p:5.3,z:0},
+  {t:'IFI.WA',n:'IFIRMA',p:29.4,z:-0.17},
+  {t:'IFR.WA',n:'IFSA',p:0.126,z:0},
+  {t:'IMC.WA',n:'IMCOMPANY',p:37.3,z:0.81},
+  {t:'GKI.WA',n:'IMMOBILE',p:4.8,z:-0.41},
+  {t:'IMP.WA',n:'IMPERIO',p:1.8,z:0},
+  {t:'IMS.WA',n:'IMS',p:2.18,z:-3.96},
+  {t:'INC.WA',n:'INC',p:1.68,z:0},
+  {t:'ING.WA',n:'INGBSK',p:416.6,z:0.43},
+  {t:'INP.WA',n:'INPRO',p:7.9,z:0},
+  {t:'INK.WA',n:'INSTALKRK',p:37.6,z:-1.05},
+  {t:'ITB.WA',n:'INTERBUD',p:1.835,z:0},
+  {t:'CAR.WA',n:'INTERCARS',p:722.0,z:-2.3},
+  {t:'IPO.WA',n:'INTERSPPL',p:0.3985,z:0.13},
+  {t:'INL.WA',n:'INTROL',p:7.68,z:0.52},
+  {t:'IPE.WA',n:'IPOPEMA',p:6.3,z:0},
+  {t:'IZO.WA',n:'IZOLACJA',p:4.09,z:0},
+  {t:'IZS.WA',n:'IZOSTAL',p:3.05,z:0.33},
+  {t:'JRH.WA',n:'JRH',p:5.06,z:3.27},
+  {t:'JSW.WA',n:'JSW',p:28.1,z:-3.3},
+  {t:'JWW.WA',n:'JWWINVEST',p:3.01,z:0},
+  {t:'KCI.WA',n:'KCI',p:0.964,z:0.84},
+  {t:'KER.WA',n:'KERNEL',p:19.7,z:0.1},
+  {t:'KTY.WA',n:'KETY',p:1099.0,z:0.18},
+  {t:'KGH.WA',n:'KGHM',p:299.9,z:0.23},
+  {t:'KGL.WA',n:'KGL',p:9.2,z:-2.65},
+  {t:'KPL.WA',n:'KINOPOL',p:20.0,z:0},
+  {t:'KGN.WA',n:'KOGENERA',p:75.5,z:-0.53},
+  {t:'KMP.WA',n:'KOMPAP',p:19.2,z:0},
+  {t:'KOM.WA',n:'KOMPUTRON',p:6.04,z:0.67},
+  {t:'KPD.WA',n:'KPPD',p:19.9,z:2.05},
+  {t:'KCH.WA',n:'KRAKCHEM/10',p:0.347,z:0},
+  {t:'KRK.WA',n:'KRKA',p:1018.0,z:-1.93},
+  {t:'KRU.WA',n:'KRUK',p:463.4,z:-1.05},
+  {t:'KVT.WA',n:'KRVITAMIN',p:12.7,z:0},
+  {t:'KSG.WA',n:'KSGAGRO',p:3.73,z:3.61},
+  {t:'LRQ.WA',n:'LARQ',p:2.02,z:-5.61},
+  {t:'LEN.WA',n:'LENA',p:2.29,z:-0.43},
+  {t:'LTX.WA',n:'LENTEX',p:7.54,z:-0.79},
+  {t:'LES.WA',n:'LESS',p:0.242,z:-0.41},
+  {t:'LBT.WA',n:'LIBET',p:1.17,z:-2.09},
+  {t:'LKD.WA',n:'LOKUM',p:24.4,z:0},
+  {t:'LPP.WA',n:'LPP',p:22200.0,z:-0.45},
+  {t:'LSI.WA',n:'LSISOFT',p:44.9,z:0},
+  {t:'LBW.WA',n:'LUBAWA',p:8.2,z:2.37},
+  {t:'MAB.WA',n:'MABION',p:7.2,z:-7.34},
+  {t:'MAK.WA',n:'MAKARONPL',p:21.2,z:-0.47},
+  {t:'MGT.WA',n:'MANGATA',p:67.2,z:-3.72},
+  {t:'MVP.WA',n:'MARVIPOL',p:10.6,z:1.44},
+  {t:'MXC.WA',n:'MAXCOM',p:6.42,z:5.25},
+  {t:'MBK.WA',n:'MBANK',p:1135.5,z:0.22},
+  {t:'MBW.WA',n:'MBWS',p:11.1,z:0},
+  {t:'MCI.WA',n:'MCI',p:27.6,z:0},
+  {t:'MCR.WA',n:'MCR',p:13.25,z:-0.75},
+  {t:'MDI.WA',n:'MDIENERGIA',p:1.2,z:-9.77},
+  {t:'MDG.WA',n:'MEDICALG',p:26.1,z:-2.06},
+  {t:'ICE.WA',n:'MEDINICE',p:74.4,z:8.77},
+  {t:'MNC.WA',n:'MENNICA',p:46.2,z:-3.14},
+  {t:'MRC.WA',n:'MERCATOR',p:49.4,z:2.07},
+  {t:'MEX.WA',n:'MEXPOLSKA',p:3.95,z:1.28},
+  {t:'MFO.WA',n:'MFO',p:33.3,z:-2.92},
+  {t:'MLK.WA',n:'MILKILAND',p:1.66,z:-4.38},
+  {t:'MIL.WA',n:'MILLENNIUM',p:17.98,z:-1.05},
+  {t:'MIR.WA',n:'MIRACULUM',p:0.626,z:0.97},
+  {t:'MRB.WA',n:'MIRBUD',p:11.1,z:2.3},
+  {t:'MLG.WA',n:'MLPGROUP',p:102.0,z:2.0},
+  {t:'MLS.WA',n:'MLSYSTEM',p:15.5,z:1.84},
+  {t:'MBR.WA',n:'MOBRUK',p:359.0,z:1.7},
+  {t:'MDV.WA',n:'MODIVO',p:79.0,z:-0.13},
+  {t:'MOJ.WA',n:'MOJ',p:1.7,z:0},
+  {t:'MOL.WA',n:'MOL',p:47.3,z:-0.46},
+  {t:'MOC.WA',n:'MOLECURE',p:5.62,z:-3.6},
+  {t:'MON.WA',n:'MONNARI',p:6.3,z:3.96},
+  {t:'MSP.WA',n:'MOSTALPLC',p:13.45,z:-1.1},
+  {t:'MSW.WA',n:'MOSTALWAR',p:5.3,z:0.76},
+  {t:'MSZ.WA',n:'MOSTALZAB',p:6.6,z:0},
+  {t:'MOV.WA',n:'MOVIEGAMES',p:8.18,z:-9.11},
+  {t:'MUR.WA',n:'MURAPOL',p:42.0,z:0.96},
+  {t:'MZA.WA',n:'MUZA',p:9.55,z:3.8},
+  {t:'MWT.WA',n:'MWTRADE',p:3.26,z:-6.32},
+  {t:'NNG.WA',n:'NANOGROUP',p:2.455,z:-0.61},
+  {t:'NEU.WA',n:'NEUCA',p:723.0,z:1.54},
+  {t:'NWG.WA',n:'NEWAG',p:108.4,z:-1.09},
+  {t:'NXG.WA',n:'NEXITY',p:1.08,z:0},
+  {t:'GNS.WA',n:'NIEWIADOW',p:17.0,z:-1.73},
+  {t:'NCL.WA',n:'NOCTILUCA',p:101.4,z:0.6},
+  {t:'NTU.WA',n:'NOVATURAS',p:6.28,z:2.61},
+  {t:'NVG.WA',n:'NOVAVISGR',p:0.66,z:-3.51},
+  {t:'NVT.WA',n:'NOVITA',p:101.0,z:-1.46},
+  {t:'NTC.WA',n:'NTCAPITAL',p:0.622,z:0},
+  {t:'NTT.WA',n:'NTTSYSTEM',p:11.4,z:0.88},
+  {t:'ODL.WA',n:'ODLEWNIE',p:18.8,z:0},
+  {t:'OND.WA',n:'ONDE',p:9.1,z:0.44},
+  {t:'OML.WA',n:'ONEMORE',p:2.83,z:2.54},
+  {t:'ONO.WA',n:'ONESANO',p:0.72,z:2.86},
+  {t:'OPN.WA',n:'OPONEO.PL',p:84.6,z:-2.53},
+  {t:'OPM.WA',n:'OPTEAM',p:3.92,z:5.38},
+  {t:'OPL.WA',n:'ORANGEPL',p:14.315,z:1.13},
+  {t:'OPG.WA',n:'ORCOGROUP',p:3.44,z:0},
+  {t:'OTS.WA',n:'OTLOG',p:13.04,z:-1.95},
+  {t:'OTM.WA',n:'OTMUCHOW',p:5.64,z:-1.74},
+  {t:'NVA.WA',n:'PANOVA',p:16.3,z:1.88},
+  {t:'PAS.WA',n:'PASSUS',p:128.0,z:-2.14},
+  {t:'PAT.WA',n:'PATENTUS',p:2.89,z:0},
+  {t:'PCX.WA',n:'PCCEXOL',p:2.02,z:0.5},
+  {t:'PCR.WA',n:'PCCROKITA',p:69.1,z:0.88},
+  {t:'PCF.WA',n:'PCFGROUP',p:3.6,z:-4.26},
+  {t:'PBX.WA',n:'PEKABEX',p:9.79,z:-0.81},
+  {t:'PEO.WA',n:'PEKAO',p:232.2,z:-0.6},
+  {t:'PEP.WA',n:'PEP',p:49.4,z:-1.1},
+  {t:'PCO.WA',n:'PEPCO',p:32.25,z:-2.27},
+  {t:'PPS.WA',n:'PEPEES',p:0.862,z:0},
+  {t:'PGE.WA',n:'PGE',p:10.82,z:1.84},
+  {t:'PGV.WA',n:'PGFGROUP',p:0.457,z:3.75},
+  {t:'PHR.WA',n:'PHARMENA',p:3.32,z:0},
+  {t:'PHN.WA',n:'PHN',p:9.5,z:0.21},
+  {t:'PEN.WA',n:'PHOTON',p:1.105,z:0.45},
+  {t:'PJP.WA',n:'PJPMAKRUM',p:17.45,z:0.29},
+  {t:'PKN.WA',n:'PKNORLEN',p:130.92,z:2.03},
+  {t:'PKO.WA',n:'PKOBP',p:96.24,z:-0.23},
+  {t:'PKP.WA',n:'PKPCARGO/9',p:14.2,z:4.41},
+  {t:'PLW.WA',n:'PLAYWAY',p:244.0,z:-0.2},
+  {t:'PLZ.WA',n:'PLAZACNTR',p:1.6,z:-0.37},
+  {t:'PGM.WA',n:'PMPG',p:2.13,z:-0.93},
+  {t:'PCE.WA',n:'POLICE',p:7.2,z:-0.55},
+  {t:'PXM.WA',n:'POLIMEXMS',p:7.85,z:-1.38},
+  {t:'PTG.WA',n:'POLTREG',p:17.15,z:0},
+  {t:'PWX.WA',n:'POLWAX',p:1.03,z:3.0},
+  {t:'PRI.WA',n:'PRAGMAINK',p:3.0,z:4.17},
+  {t:'PRM.WA',n:'PROCHEM',p:24.9,z:0},
+  {t:'PRT.WA',n:'PROTEKTOR',p:1.194,z:-1.97},
+  {t:'PTW.WA',n:'PTWP',p:144.5,z:-0.69},
+  {t:'ZAP.WA',n:'PULAWY',p:44.1,z:-1.34},
+  {t:'PUR.WA',n:'PURE',p:2.5,z:-3.1},
+  {t:'PZU.WA',n:'PZU',p:64.28,z:-0.19},
+  {t:'QNA.WA',n:'QNATECHNO',p:45.3,z:-1.09},
+  {t:'QRS.WA',n:'QUERCUS',p:11.86,z:-3.89},
+  {t:'RAF.WA',n:'RAFAMET/9',p:47.3,z:-0.42},
+  {t:'RBW.WA',n:'RAINBOW',p:133.5,z:-1.26},
+  {t:'RNK.WA',n:'RANKPROGR',p:4.0,z:0},
+  {t:'RWL.WA',n:'RAWLPLUG',p:15.2,z:-1.3},
+  {t:'RNC.WA',n:'REINO',p:0.74,z:5.71},
+  {t:'RLP.WA',n:'RELPOL',p:5.7,z:0},
+  {t:'RMK.WA',n:'REMAK',p:11.4,z:0},
+  {t:'RND.WA',n:'RENDER',p:74.8,z:-1.32},
+  {t:'RPC.WA',n:'ROPCZYCE',p:22.5,z:1.35},
+  {t:'RVU.WA',n:'RYVU',p:23.4,z:-2.09},
+  {t:'SNK.WA',n:'SANOK',p:22.0,z:0},
+  {t:'SAN.WA',n:'SANTANDER',p:44.72,z:1.41},
+  {t:'SNW.WA',n:'SANWIL',p:1.295,z:-1.89},
+  {t:'SCW.WA',n:'SCANWAY',p:368.0,z:-2.9},
+  {t:'SCP.WA',n:'SCPFL',p:139.0,z:0.14},
+  {t:'SWG.WA',n:'SECOGROUP',p:35.4,z:0},
+  {t:'SEK.WA',n:'SEKO',p:10.05,z:-0.5},
+  {t:'SEL.WA',n:'SELENAFM',p:50.8,z:0},
+  {t:'SLV.WA',n:'SELVITA',p:34.85,z:1.6},
+  {t:'SFS.WA',n:'SFINKS',p:0.44,z:-2.0},
+  {t:'SHO.WA',n:'SHOPER',p:39.3,z:-0.25},
+  {t:'SVRS.WA',n:'SILVAIR-REGS/18',p:5.0,z:2.04},
+  {t:'SFG.WA',n:'SILVANO',p:5.16,z:0},
+  {t:'SIM.WA',n:'SIMFABRIC',p:1.586,z:-0.88},
+  {t:'SKH.WA',n:'SKARBIEC',p:36.4,z:6.74},
+  {t:'SKL.WA',n:'SKYLINE',p:1.43,z:5.93},
+  {t:'SKA.WA',n:'SNIEZKA',p:86.0,z:0},
+  {t:'SVE.WA',n:'SNTVERSE',p:3.425,z:-0.15},
+  {t:'SON.WA',n:'SONEL',p:14.2,z:0},
+  {t:'SPH.WA',n:'SOPHARMA',p:7.52,z:-5.53},
+  {t:'SPR.WA',n:'SPYROSOFT',p:459.0,z:2.91},
+  {t:'STX.WA',n:'STALEXP',p:2.82,z:-0.35},
+  {t:'STP.WA',n:'STALPROD',p:241.0,z:2.55},
+  {t:'STF.WA',n:'STALPROFI',p:8.78,z:-1.13},
+  {t:'ZUK.WA',n:'STAPORKOW',p:4.82,z:2.12},
+  {t:'SNX.WA',n:'SUNEX',p:2.81,z:-1.75},
+  {t:'SGN.WA',n:'SYGNITY',p:74.3,z:-3.51},
+  {t:'S2B.WA',n:'SYN2BIO',p:28.49,z:-1.76},
+  {t:'SNT.WA',n:'SYNEKTIK',p:286.4,z:1.06},
+  {t:'TLX.WA',n:'TALEX',p:17.3,z:3.59},
+  {t:'TAR.WA',n:'TARCZYNSKI',p:121.5,z:1.25},
+  {t:'TMR.WA',n:'TATRY',p:83.5,z:0},
+  {t:'TPE.WA',n:'TAURONPE',p:9.306,z:-1.81},
+  {t:'THG.WA',n:'TENDERHUT',p:6.0,z:0},
+  {t:'TRR.WA',n:'TERMOREX',p:0.7,z:-0.71},
+  {t:'TSG.WA',n:'TESGAS',p:1.93,z:-1.78},
+  {t:'TXT.WA',n:'TEXT',p:39.18,z:-0.51},
+  {t:'TOR.WA',n:'TORPOL',p:72.3,z:-0.69},
+  {t:'TOA.WA',n:'TOYA',p:9.3,z:-0.75},
+  {t:'TRK.WA',n:'TRAKCJA',p:3.97,z:-0.5},
+  {t:'TRN.WA',n:'TRANSPOL',p:13.8,z:3.76},
+  {t:'TEN.WA',n:'TSGAMES',p:108.1,z:0.84},
+  {t:'ULM.WA',n:'ULMA',p:61.5,z:0},
+  {t:'ULG.WA',n:'ULTGAMES',p:13.8,z:0},
+  {t:'UNF.WA',n:'UNFOLD',p:1.17,z:0},
+  {t:'UNI.WA',n:'UNIBEP',p:14.96,z:0.27},
+  {t:'UCG.WA',n:'UNICREDIT',p:279.0,z:-0.73},
+  {t:'UNT.WA',n:'UNIMOT',p:157.4,z:0.77},
+  {t:'URT.WA',n:'URTESTE',p:43.6,z:0.23},
+  {t:'VRC.WA',n:'VERCOM',p:125.2,z:-2.49},
+  {t:'VGO.WA',n:'VIGOPHOTN',p:506.0,z:2.85},
+  {t:'VIN.WA',n:'VINDEXUS',p:14.05,z:-1.4},
+  {t:'GVT.WA',n:'VIRTUS',p:1.692,z:-3.75},
+  {t:'VVD.WA',n:'VIVID',p:0.602,z:-4.14},
+  {t:'VOT.WA',n:'VOTUM',p:49.8,z:-0.3},
+  {t:'VOX.WA',n:'VOXEL',p:100.8,z:-0.59},
+  {t:'VRG.WA',n:'VRG',p:5.26,z:0.38},
+  {t:'WXF.WA',n:'WARIMPEX',p:2.3,z:-0.43},
+  {t:'WAS.WA',n:'WASKO',p:8.66,z:0.7},
+  {t:'WWL.WA',n:'WAWEL',p:782.0,z:0.26},
+  {t:'WLT.WA',n:'WIELTON',p:5.55,z:0.18},
+  {t:'WIK.WA',n:'WIKANA',p:7.65,z:-4.38},
+  {t:'WPL.WA',n:'WIRTUALNA',p:58.2,z:0.34},
+  {t:'WTN.WA',n:'WITTCHEN',p:16.2,z:1.76},
+  {t:'WPR.WA',n:'WOODPCKR',p:2.98,z:1.02},
+  {t:'XPL.WA',n:'XPLUS',p:2.5,z:-3.1},
+  {t:'XTB.WA',n:'XTB',p:100.74,z:-4.78},
+  {t:'XTP.WA',n:'XTPL',p:61.7,z:-2.83},
+  {t:'YAN.WA',n:'YANOSIK',p:14.9,z:0.68},
+  {t:'YRL.WA',n:'YARRL',p:5.48,z:0.74},
+  {t:'ZAB.WA',n:'ZABKA',p:23.52,z:-2.0},
+  {t:'ZMT.WA',n:'ZAMET',p:0.826,z:4.03},
+  {t:'ZEP.WA',n:'ZEPAK',p:18.68,z:0.43},
+  {t:'ZRE.WA',n:'ZREMB',p:9.18,z:2.0},
+  {t:'ZUE.WA',n:'ZUE',p:13.05,z:0.38}
+];
+
+const SWIG80 = [
+  {t:'1AT.WA',n:'1ACCOUNT',s:'Technologia'},
+  {t:'ACG.WA',n:'ACG',s:'Przemysl'},
+  {t:'ACP.WA',n:'Asseco Poland',s:'Technologia'},
+  {t:'AGO.WA',n:'Agora',s:'Media'},
+  {t:'ALE.WA',n:'Allegro',s:'Handel'},
+  {t:'AMC.WA',n:'AmRest',s:'Gastronomia'},
+  {t:'APT.WA',n:'Apator',s:'Przemysl'},
+  {t:'ARH.WA',n:'Archicom',s:'Nieruchomosci'},
+  {t:'ATD.WA',n:'Atende',s:'Technologia'},
+  {t:'ATG.WA',n:'Auto Partner',s:'Handel'},
+  {t:'BDX.WA',n:'Budlex',s:'Nieruchomosci'},
+  {t:'BHW.WA',n:'Bank Handlowy',s:'Finanse'},
+  {t:'BML.WA',n:'Bumech',s:'Przemysl'},
+  {t:'BNP.WA',n:'BNP Paribas Bank PL',s:'Finanse'},
+  {t:'BOW.WA',n:'Bowim',s:'Handel'},
+  {t:'BRS.WA',n:'Boryszew',s:'Przemysl'},
+  {t:'BST.WA',n:'Benefit Systems',s:'Uslugi'},
+  {t:'CAR.WA',n:'Carint',s:'Motoryzacja'},
+  {t:'CBF.WA',n:'Cube.ITG',s:'Technologia'},
+  {t:'CCC.WA',n:'CCC',s:'Odziez'},
+  {t:'CEL.WA',n:'Celon Pharma',s:'Farmacja'},
+  {t:'CFG.WA',n:'Compfin',s:'Finanse'},
+  {t:'CHTP.WA',n:'Chemtex',s:'Chemia'},
+  {t:'CIG.WA',n:'CI Games',s:'Gry'},
+  {t:'CLC.WA',n:'Calcus',s:'Finanse'},
+  {t:'CMR.WA',n:'Comarch',s:'Technologia'},
+  {t:'COG.WA',n:'Cognor',s:'Przemysl'},
+  {t:'CPG.WA',n:'Carpathia Capital',s:'Finanse'},
+  {t:'CPS.WA',n:'Captor Therapeutics',s:'Farmacja'},
+  {t:'DBE.WA',n:'Debica',s:'Motoryzacja'},
+  {t:'DBC.WA',n:'Domdev',s:'Nieruchomosci'},
+  {t:'DCR.WA',n:'Decora',s:'Budownictwo'},
+  {t:'DEL.WA',n:'Delko',s:'Handel'},
+  {t:'DGA.WA',n:'DGA',s:'Uslugi'},
+  {t:'DOM.WA',n:'Dom Development',s:'Nieruchomosci'},
+  {t:'ECH.WA',n:'Echo Investment',s:'Nieruchomosci'},
+  {t:'EHG.WA',n:'Enel-Med',s:'Zdrowie'},
+  {t:'ELB.WA',n:'Elbudowa',s:'Budownictwo'},
+  {t:'EMC.WA',n:'EMC Instytut Medyczny',s:'Zdrowie'},
+  {t:'ENE.WA',n:'Enea',s:'Energia'},
+  {t:'ERA.WA',n:'Erato',s:'Nieruchomosci'},
+  {t:'FER.WA',n:'Ferro',s:'Budownictwo'},
+  {t:'FOR.WA',n:'Forte',s:'Meble'},
+  {t:'GNB.WA',n:'Getin Noble Bank',s:'Finanse'},
+  {t:'GPW.WA',n:'GPW',s:'Finanse'},
+  {t:'GRN.WA',n:'Grodno',s:'Handel'},
+  {t:'GTC.WA',n:'Globe Trade Centre',s:'Nieruchomosci'},
+  {t:'GTN.WA',n:'Grattan',s:'Handel'},
+  {t:'HRS.WA',n:'Herkules',s:'Budownictwo'},
+  {t:'HUB.WA',n:'HubStyle',s:'Odziez'},
+  {t:'IFR.WA',n:'Ifirma',s:'Technologia'},
+  {t:'ING.WA',n:'ING Bank Slaski',s:'Finanse'},
+  {t:'INK.WA',n:'Inko',s:'Przemysl'},
+  {t:'IPE.WA',n:'Ipopema',s:'Finanse'},
+  {t:'IPF.WA',n:'International Personal Finance',s:'Finanse'},
+  {t:'JWC.WA',n:'JW Construction',s:'Nieruchomosci'},
+  {t:'KER.WA',n:'Kering',s:'Odziez'},
+  {t:'KGN.WA',n:'Kogeneracja',s:'Energia'},
+  {t:'KRK.WA',n:'Kruk',s:'Finanse'},
+  {t:'KSW.WA',n:'Kosmed',s:'Zdrowie'},
+  {t:'KTY.WA',n:'Kety',s:'Przemysl'},
+  {t:'LEN.WA',n:'Lenarcik',s:'Budownictwo'},
+  {t:'LTS.WA',n:'Lotus',s:'Przemysl'},
+  {t:'MBR.WA',n:'Mirbud',s:'Budownictwo'},
+  {t:'MCR.WA',n:'Macrologic',s:'Technologia'},
+  {t:'MDI.WA',n:'MDI',s:'Budownictwo'},
+  {t:'MED.WA',n:'Medicover',s:'Zdrowie'},
+  {t:'MOJ.WA',n:'Moj',s:'Przemysl'},
+  {t:'MRC.WA',n:'Mercator Medical',s:'Zdrowie'},
+  {t:'NEU.WA',n:'Neuca',s:'Farmacja'},
+  {t:'NTT.WA',n:'NTT System',s:'Technologia'},
+  {t:'NWG.WA',n:'Newag',s:'Przemysl'},
+  {t:'OAT.WA',n:'OAT',s:'Rolnictwo'},
+  {t:'OPL.WA',n:'Orange Polska',s:'Telekomunikacja'},
+  {t:'PCE.WA',n:'Polskie Centrum Energii',s:'Energia'},
+  {t:'PCF.WA',n:'Playway',s:'Gry'},
+  {t:'PEK.WA',n:'Pekabex',s:'Budownictwo'},
+  {t:'PGO.WA',n:'Police',s:'Chemia'},
+  {t:'PJP.WA',n:'PJP Makrum',s:'Przemysl'},
+  {t:'PKP.WA',n:'PKP Cargo',s:'Transport'},
+  {t:'PLW.WA',n:'Playway',s:'Gry'},
+  {t:'PME.WA',n:'Prime Motor Cars',s:'Motoryzacja'},
+  {t:'POZ.WA',n:'Poznan',s:'Inne'},
+  {t:'PRF.WA',n:'Protektor',s:'Odziez'},
+  {t:'PRM.WA',n:'Primetech',s:'Technologia'},
+  {t:'PRT.WA',n:'Prymus',s:'Handel'},
+  {t:'PTN.WA',n:'Pelion',s:'Farmacja'},
+  {t:'PWC.WA',n:'Polwax',s:'Chemia'},
+  {t:'RBW.WA',n:'Rainbow Tours',s:'Turystyka'},
+  {t:'RDN.WA',n:'Redan',s:'Handel'},
+  {t:'RPC.WA',n:'Ropczyce',s:'Przemysl'},
+  {t:'RWL.WA',n:'Rawlplug',s:'Budownictwo'},
+  {t:'SAN.WA',n:'Sanok RC',s:'Motoryzacja'},
+  {t:'SCO.WA',n:'Scope Fluidics',s:'Zdrowie'},
+  {t:'SES.WA',n:'Sescom',s:'Technologia'},
+  {t:'SGN.WA',n:'Grenkeleasing',s:'Finanse'},
+  {t:'SHD.WA',n:'Shoper',s:'Technologia'},
+  {t:'SKA.WA',n:'Skarbiec Holding',s:'Finanse'},
+  {t:'SKH.WA',n:'Stalexport',s:'Przemysl'},
+  {t:'SNK.WA',n:'Snowdog',s:'Inne'},
+  {t:'SOK.WA',n:'Sokol',s:'Spozywczy'},
+  {t:'SPH.WA',n:'Sphera',s:'Gastronomia'},
+  {t:'STF.WA',n:'Stalprofil',s:'Przemysl'},
+  {t:'SWG.WA',n:'Swissmed',s:'Zdrowie'},
+  {t:'SXL.WA',n:'Synthos',s:'Chemia'},
+  {t:'TOR.WA',n:'Torpol',s:'Budownictwo'},
+  {t:'TOY.WA',n:'Toya',s:'Handel'},
+  {t:'TRK.WA',n:'Trakcja',s:'Budownictwo'},
+  {t:'TXM.WA',n:'TXM',s:'Handel'},
+  {t:'UNI.WA',n:'Unibep',s:'Budownictwo'},
+  {t:'ULM.WA',n:'Ulma Construccion',s:'Budownictwo'},
+  {t:'VER.WA',n:'Vercom',s:'Technologia'},
+  {t:'VGO.WA',n:'Vigo Photonics',s:'Technologia'},
+  {t:'VOX.WA',n:'Voxel',s:'Zdrowie'},
+  {t:'WIG.WA',n:'WIG',s:'Inne'},
+  {t:'WIT.WA',n:'Wittchen',s:'Odziez'},
+  {t:'WLT.WA',n:'Wielton',s:'Przemysl'},
+  {t:'WRN.WA',n:'Warren',s:'Handel'},
+  {t:'XTB.WA',n:'XTB',s:'Finanse'},
+  {t:'ZAP.WA',n:'Zamet',s:'Przemysl'},
+  {t:'ZEP.WA',n:'Zesp',s:'Przemysl'},
+  {t:'ZMT.WA',n:'Zamet',s:'Przemysl'},
+];
+
+let swigSectorFilter = 'Wszystkie';
+
+function toggleSwig() {
+  const body = document.getElementById('swigBody');
+  const btn = document.getElementById('swigToggle');
+  const isOpen = body.classList.toggle('open');
+  btn.classList.toggle('open', isOpen);
+  btn.textContent = isOpen ? '▲ Ukryj listę' : '▼ Pokaż listę';
+  if(isOpen && !document.getElementById('swigGrid').children.length) {
+    renderSwigTabs();
+    renderSwigGrid('');
+  }
+}
+
+function renderSwigTabs() {
+  // Litery alfabetu z GPW_ALL
+  const letters = ['Wszystkie', ...new Set(GPW_ALL.map(s=>s.n[0].toUpperCase()).sort())];
+  const tabs = document.getElementById('swigTabs');
+  tabs.innerHTML = letters.map(l =>
+    `<button class="swig-sector-btn ${l===swigSectorFilter?'active':''}" onclick="setSectorFilter('${l}')">${l}</button>`
+  ).join('');
+}
+
+function setSectorFilter(sector) {
+  swigSectorFilter = sector;
+  renderSwigTabs();
+  renderSwigGrid(document.getElementById('swigSearch').value);
+}
+
+function filterSwig(q) {
+  swigSectorFilter = 'Wszystkie';
+  renderSwigTabs();
+  renderSwigGrid(q);
+}
+
+function renderSwigGrid(query) {
+  const q = (query||'').toLowerCase();
+  const sort = document.getElementById('swigSortSel')?.value || 'alpha';
+
+  let items = GPW_ALL.filter(s => {
+    const matchLetter = swigSectorFilter === 'Wszystkie' || s.n[0].toUpperCase() === swigSectorFilter;
+    const matchQ = !q || s.t.toLowerCase().includes(q) || s.n.toLowerCase().includes(q);
+    return matchLetter && matchQ;
+  });
+
+  // Sort
+  if(sort === 'alpha') items.sort((a,b) => a.n.localeCompare(b.n));
+  else if(sort === 'change_asc') items.sort((a,b) => a.z - b.z);
+  else if(sort === 'change_desc') items.sort((a,b) => b.z - a.z);
+  else if(sort === 'price_asc') items.sort((a,b) => a.p - b.p);
+  else if(sort === 'price_desc') items.sort((a,b) => b.p - a.p);
+
+  document.getElementById('swigCount').textContent = `Pokazuje ${items.length} z ${GPW_ALL.length} spolek GPW`;
+
+  const grid = document.getElementById('swigGrid');
+  if(!items.length) {
+    grid.innerHTML = '<div style="color:var(--muted);font-size:0.7rem;grid-column:1/-1;padding:10px 0">Brak wynikow</div>';
+    return;
+  }
+  grid.innerHTML = items.map(s => {
+    const isPos = s.z >= 0;
+    const zColor = isPos ? 'var(--green)' : 'var(--red)';
+    const safe = s.n.replace(/'/g,"\'");
+    return `<div class="swig-card" onclick="swigAddToInput('${s.t}','${safe}','${s.p}')">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div class="swig-card-ticker">${s.t.replace('.WA','')}</div>
+        <div style="font-size:0.6rem;font-weight:600;color:${zColor}">${isPos?'+':''}${s.z}%</div>
+      </div>
+      <div class="swig-card-name">${s.n}</div>
+      <div style="font-size:0.62rem;color:var(--muted);margin-top:2px">${s.p.toLocaleString('pl')} PLN</div>
+    </div>`;
+  }).join('');
+}
+
+function swigAddToInput(ticker, name, price) {
+  document.getElementById('tickerInput').value = ticker;
+  if(price) document.getElementById('costInput').value = price;
+  document.getElementById('sharesInput').focus();
+  document.querySelector('.add-section').scrollIntoView({behavior:'smooth', block:'center'});
+  showToast(`Wybrano: ${name} — wpisz liczbe akcji`);
+}
+
+init();
+</script>
+</body>
+</html>
